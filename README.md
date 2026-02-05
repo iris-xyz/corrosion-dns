@@ -19,13 +19,15 @@ See [`assets/architecture.mmd`](assets/architecture.mmd)
 
 ## Motivation
 
-Platforms that host internal services on a private network need internal DNS so services can discover each other by name. The typical solution is a shared DNS server like [CoreDNS](https://coredns.io/) — you deploy one instance and every group on the cluster shares it. This works until you need **true isolation** between groups (tenants, teams, environments). A single CoreDNS cannot isolate per namespace: every group can potentially resolve names belonging to other groups, and a misconfiguration in one affects all of them.
+Platforms that host internal services on a private network need internal DNS so services can discover each other by name. The typical solution is a shared DNS server like [CoreDNS](https://coredns.io/) — you deploy one instance and every group on the cluster shares it. This works until you need **isolation** between groups (tenants, teams, environments). A single CoreDNS cannot isolate per-group: every querier can resolve names belonging to other groups.
 
-corrosion-dns takes a different approach. You deploy **N instances for N isolated groups**, each with its own configuration and its own view of the world. Each instance derives DNS records directly from its group's [Corrosion](https://github.com/superfly/corrosion) distributed SQLite state — you write to the `apps` and `machines` tables and corrosion-dns picks up the changes in real time. No zone files, no shared state, no record management. Every group gets a fully independent DNS server that only knows about its own services, making isolation the default rather than something bolted on after the fact.
+The brute-force fix is deploying **N DNS servers for N groups**. That works but scales linearly in infrastructure.
+
+corrosion-dns takes a different approach: **one instance, all groups, zero leakage**. It encodes a group identifier directly into the IPv6 addresses assigned to machines, then uses the querier's own source IP to decide which records they're allowed to see. A machine in group A queries the same DNS server as a machine in group B — but each only ever receives AAAA records matching its own group. The filtering happens at the IP level inside the DNS response, not through separate zones or server instances.
 
 This makes it a good fit for:
 
-- Multi-tenant platforms where each tenant needs its own isolated DNS namespace
+- Multi-tenant platforms where each tenant needs isolated DNS without per-tenant infrastructure
 - Internal service discovery within private networks
 - Edge/regional deployments where machines come and go frequently
 - Any system where DNS records should reflect the live state of running infrastructure and groups must not leak into each other
@@ -34,10 +36,60 @@ This makes it a good fit for:
 
 - Real-time DNS updates via Corrosion subscriptions
 - AAAA records for app domains pointing to running machine IPv6 addresses
+- **Source-IP group filtering** — one DNS instance isolates all groups
 - Regional DNS lookups (`<region>.<app>.apps.example.com`)
 - Automatic reconnection with exponential backoff
 - Graceful shutdown support
 - Prometheus metrics and optional OpenTelemetry tracing
+
+## Group filtering
+
+### The idea
+
+Instead of running separate DNS servers per group, we embed a 32-bit group identifier directly into each machine's IPv6 address at a configurable bit range (bits 64-95 by default). When a DNS query arrives, corrosion-dns extracts the group hash from the **source IP** of the querier and compares it against the group hash in each candidate AAAA record. Only records with a matching group are returned. The querier never sees IPs belonging to other groups — isolation falls out of the address scheme, not from access control lists or separate server instances.
+
+### How it works
+
+```mermaid
+sequenceDiagram
+    participant A as Machine A<br/>Group 0xAAAABBBB<br/>fd00::1:aaaa:bbbb:0:100
+    participant DNS as corrosion-dns<br/>(single instance)
+    participant B as Machine B<br/>Group 0xCCCCDDDD<br/>fd00::1:cccc:dddd:0:200
+
+    Note over DNS: State has machines from both groups:<br/>fd00::1:aaaa:bbbb:0:1 (group A)<br/>fd00::1:aaaa:bbbb:0:2 (group A)<br/>fd00::1:cccc:dddd:0:3 (group B)
+
+    A->>DNS: AAAA web.apps.example.com?<br/>src=fd00::1:aaaa:bbbb:0:100
+    Note over DNS: Extract group from src: 0xAAAABBBB<br/>Filter: keep only 0xAAAABBBB IPs
+    DNS->>A: fd00::1:aaaa:bbbb:0:1<br/>fd00::1:aaaa:bbbb:0:2
+
+    B->>DNS: AAAA web.apps.example.com?<br/>src=fd00::1:cccc:dddd:0:200
+    Note over DNS: Extract group from src: 0xCCCCDDDD<br/>Filter: keep only 0xCCCCDDDD IPs
+    DNS->>B: fd00::1:cccc:dddd:0:3
+```
+
+### Requirements
+
+The group filter doesn't assign addresses — it just reads them. Your infrastructure needs to:
+
+1. **Embed a 32-bit group hash at bits 64-95** (default) of every machine's IPv6 address. The bit range is configurable via `group_start_bit` and `group_bit_length`. Use a stable hash (FNV-1a, xxHash, etc.) of the group identifier.
+
+2. **Preserve real source IPs.** Group identity comes from the querier's source address — no NAT or proxies between machines and the DNS server.
+
+### IPv4 bypass
+
+IPv4 and IPv4-mapped IPv6 sources (e.g. `10.0.0.1`, `::ffff:10.0.0.1`) bypass the group filter entirely and receive all records. This is intentional — IPv4 sources don't carry group identity, so they're assumed to be infrastructure (load balancers, monitoring, etc.) that needs full visibility.
+
+### Enabling it
+
+Add the `group_filter` section to your config:
+
+```toml
+[dns.group_filter]
+group_start_bit = 64   # where the group hash starts (0 = MSB)
+group_bit_length = 32  # how many bits the group hash occupies
+```
+
+When this section is absent, all AAAA records are returned to all queriers (no filtering).
 
 ## Quickstart
 
@@ -45,6 +97,7 @@ This makes it a good fit for:
 
 - Rust 1.75+ (2021 edition)
 - A running [Corrosion](https://github.com/superfly/corrosion) agent with `apps` and `machines` tables
+- **If using group filtering:** IPv6 addresses assigned to machines must carry a stable 32-bit group hash at bits 64-95 (configurable). Machines must query from their real IPv6 address — no NAT or proxies between the machine and the DNS server. See [Group filtering](#group-filtering) for details.
 
 ### Build and run
 
@@ -97,6 +150,8 @@ See [`corrosion-dns.example.toml`](corrosion-dns.example.toml) for a fully comme
 | `dns.soa.retry` | `600` | SOA retry interval (seconds) |
 | `dns.soa.expire` | `604800` | SOA expire time (seconds) |
 | `dns.soa.minimum` | `60` | SOA negative cache TTL (seconds) |
+| `dns.group_filter.group_start_bit` | `64` | Bit offset (from MSB) where group hash starts |
+| `dns.group_filter.group_bit_length` | `32` | Width of the group hash field in bits |
 | `telemetry.log_level` | `info` | Log level filter (supports `RUST_LOG` syntax) |
 | `telemetry.prometheus_addr` | *(disabled)* | Prometheus metrics endpoint address |
 | `telemetry.opentelemetry.endpoint` | *(disabled)* | OTLP gRPC endpoint |
