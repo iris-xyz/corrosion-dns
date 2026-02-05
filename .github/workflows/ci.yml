@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --no-default-features --features "${{ matrix.features }}"
+      - run: cargo build --release --no-default-features ${{ matrix.features && format('--features "{0}"', matrix.features) || '' }}
 
   docker:
     name: Docker build

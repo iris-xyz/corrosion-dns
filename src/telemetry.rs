@@ -7,6 +7,7 @@
 
 #[cfg(feature = "prometheus")]
 use std::net::SocketAddr;
+#[cfg(any(feature = "prometheus", feature = "otel"))]
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -33,8 +34,8 @@ pub fn init(config: &TelemetryConfig) -> Result<(), Box<dyn std::error::Error + 
 }
 
 fn init_tracing(config: &TelemetryConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&config.log_level));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.log_level));
 
     #[cfg(feature = "otel")]
     if let Some(ref otel_config) = config.opentelemetry {
@@ -94,7 +95,9 @@ fn init_tracing(config: &TelemetryConfig) -> Result<(), Box<dyn std::error::Erro
 
 /// Start Prometheus metrics HTTP exporter.
 #[cfg(feature = "prometheus")]
-fn start_prometheus_exporter(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn start_prometheus_exporter(
+    addr: SocketAddr,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use metrics_exporter_prometheus::PrometheusBuilder;
 
     PrometheusBuilder::new()
