@@ -12,15 +12,20 @@ An authoritative DNS server backed by [Corrosion](https://github.com/superfly/co
 See [`assets/architecture.mmd`](assets/architecture.mmd)
 </details>
 
-### DNS Resolution Flow
+## Motivation
 
-![DNS Flow](assets/dns-flow.png)
+Platforms that host internal services on a private network often need internal DNS names so services can discover each other by name rather than by address. Public DNS doesn't work here because the addresses are private and the names shouldn't leak outside the network.
 
-<details>
-<summary>Mermaid source</summary>
+The usual approach is to run a single shared DNS server, but that breaks down when you need **isolated groups** (tenants, teams, environments) on the same cluster, each with their own namespace. You end up deploying N DNS server instances for N groups, each with its own configuration and state, which is tedious to manage and scale.
 
-See [`assets/dns-flow.mmd`](assets/dns-flow.mmd)
-</details>
+corrosion-dns solves this by deriving DNS records directly from [Corrosion](https://github.com/superfly/corrosion)'s distributed SQLite state. Instead of managing DNS records manually, you write to the `apps` and `machines` tables and corrosion-dns picks up the changes in real time. Deploy one instance per isolated group, point it at the group's Corrosion cluster, and it serves the right records automatically. No zone files, no record management, no syncing.
+
+This makes it a good fit for:
+
+- Internal service discovery within a private network
+- Multi-tenant platforms where each tenant gets its own DNS namespace
+- Edge/regional deployments where machines come and go frequently
+- Any system where DNS records should reflect the live state of running infrastructure
 
 ## Features
 
