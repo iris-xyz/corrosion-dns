@@ -14,18 +14,16 @@ See [`assets/architecture.mmd`](assets/architecture.mmd)
 
 ## Motivation
 
-Platforms that host internal services on a private network often need internal DNS names so services can discover each other by name rather than by address. Public DNS doesn't work here because the addresses are private and the names shouldn't leak outside the network.
+Platforms that host internal services on a private network need internal DNS so services can discover each other by name. The typical solution is a shared DNS server like [CoreDNS](https://coredns.io/) — you deploy one instance and every group on the cluster shares it. This works until you need **true isolation** between groups (tenants, teams, environments). A single CoreDNS cannot isolate per namespace: every group can potentially resolve names belonging to other groups, and a misconfiguration in one affects all of them.
 
-The usual approach is to run a single shared DNS server, but that breaks down when you need **isolated groups** (tenants, teams, environments) on the same cluster, each with their own namespace. You end up deploying N DNS server instances for N groups, each with its own configuration and state, which is tedious to manage and scale.
-
-corrosion-dns solves this by deriving DNS records directly from [Corrosion](https://github.com/superfly/corrosion)'s distributed SQLite state. Instead of managing DNS records manually, you write to the `apps` and `machines` tables and corrosion-dns picks up the changes in real time. Deploy one instance per isolated group, point it at the group's Corrosion cluster, and it serves the right records automatically. No zone files, no record management, no syncing.
+corrosion-dns takes a different approach. You deploy **N instances for N isolated groups**, each with its own configuration and its own view of the world. Each instance derives DNS records directly from its group's [Corrosion](https://github.com/superfly/corrosion) distributed SQLite state — you write to the `apps` and `machines` tables and corrosion-dns picks up the changes in real time. No zone files, no shared state, no record management. Every group gets a fully independent DNS server that only knows about its own services, making isolation the default rather than something bolted on after the fact.
 
 This makes it a good fit for:
 
-- Internal service discovery within a private network
-- Multi-tenant platforms where each tenant gets its own DNS namespace
+- Multi-tenant platforms where each tenant needs its own isolated DNS namespace
+- Internal service discovery within private networks
 - Edge/regional deployments where machines come and go frequently
-- Any system where DNS records should reflect the live state of running infrastructure
+- Any system where DNS records should reflect the live state of running infrastructure and groups must not leak into each other
 
 ## Features
 
