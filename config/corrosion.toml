@@ -1,0 +1,18 @@
+# Corrosion agent configuration for docker-compose
+
+[db]
+path = "/var/lib/corrosion/corrosion.db"
+
+[api]
+addr = "0.0.0.0:8080"
+
+[admin]
+path = "/var/run/corrosion/admin.sock"
+
+[gossip]
+addr = "0.0.0.0:8787"
+# For single-node dev setup, no bootstrap needed
+# bootstrap = ["other-node:8787"]
+
+[telemetry]
+prometheus.addr = "0.0.0.0:9100"

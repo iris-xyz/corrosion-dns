@@ -1,0 +1,63 @@
+graph TB
+    subgraph Cluster["Corrosion Cluster"]
+        CA["Corrosion Agent<br/><i>Distributed SQLite</i>"]
+        DB[("apps &amp; machines<br/>tables")]
+        CA --- DB
+    end
+
+    subgraph CorroDNS["corrosion-dns"]
+        direction TB
+
+        subgraph Subscriptions["Subscription Layer"]
+            SH["SubscriptionHandler"]
+            AS["Apps Subscription<br/><code>SELECT app_id, app_name<br/>FROM apps</code>"]
+            MS["Machines Subscription<br/><code>SELECT machine_id, app_id,<br/>ipv6_address, status, region<br/>FROM machines</code>"]
+            SH --> AS
+            SH --> MS
+        end
+
+        subgraph State["State Layer"]
+            DS["DnsState<br/><i>Thread-safe in-memory store</i>"]
+            DI["Domain Index<br/><code>app.base_domain → [IPv6]<br/>region.app.base_domain → [IPv6]</code>"]
+            DS --- DI
+        end
+
+        subgraph DNS["DNS Server Layer"]
+            HK["Hickory DNS Server<br/><i>UDP + TCP</i>"]
+            AUTH["CorrosionAuthority<br/><i>AAAA, SOA, NS lookups</i>"]
+            HK --> AUTH
+        end
+
+        subgraph Observability["Observability"]
+            MET["Metrics<br/><i>corro_dns.*</i>"]
+            PROM["Prometheus<br/>Exporter"]
+            OTEL["OpenTelemetry<br/>Exporter"]
+            MET --> PROM
+            MET --> OTEL
+        end
+
+        AS -->|"upsert / remove apps"| DS
+        MS -->|"upsert / remove machines"| DS
+        AUTH -->|"lookup_aaaa(domain)"| DI
+    end
+
+    CA -->|"Subscription streams<br/>(real-time changes)"| SH
+    CLIENT["DNS Client"] -->|"AAAA query<br/>my-api.apps.example.com"| HK
+    HK -->|"AAAA response<br/>[fd00::1, fd00::2]"| CLIENT
+    PROM -.->|":9090 /metrics"| SCRAPER["Prometheus<br/>Scraper"]
+    OTEL -.->|"OTLP gRPC :4317"| COLLECTOR["Trace<br/>Collector"]
+
+    classDef cluster fill:#e8f4f8,stroke:#0891b2,stroke-width:2px,color:#0c4a6e
+    classDef corrodns fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef sub fill:#fefce8,stroke:#ca8a04,stroke-width:1px,color:#713f12
+    classDef state fill:#eff6ff,stroke:#2563eb,stroke-width:1px,color:#1e3a5f
+    classDef dns fill:#fdf2f8,stroke:#db2777,stroke-width:1px,color:#831843
+    classDef obs fill:#f5f3ff,stroke:#7c3aed,stroke-width:1px,color:#3b0764
+    classDef external fill:#f8fafc,stroke:#64748b,stroke-width:1px,color:#334155,stroke-dasharray: 5 5
+
+    class CA,DB cluster
+    class SH,AS,MS sub
+    class DS,DI state
+    class HK,AUTH dns
+    class MET,PROM,OTEL obs
+    class CLIENT,SCRAPER,COLLECTOR external

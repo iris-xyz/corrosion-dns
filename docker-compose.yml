@@ -1,0 +1,104 @@
+version: "3.8"
+
+services:
+  # Corrosion agent - distributed SQLite
+  corrosion:
+    image: ghcr.io/superfly/corrosion:latest
+    # Or build from source:
+    # build:
+    #   context: ../..
+    #   dockerfile: examples/fly/Dockerfile
+    ports:
+      - "8080:8080"   # API
+      - "8081:8081"   # Admin
+    volumes:
+      - corrosion-data:/var/lib/corrosion
+      - ./config/corrosion.toml:/etc/corrosion/config.toml:ro
+      - ./config/schema.sql:/etc/corrosion/schemas/cluster.sql:ro
+    environment:
+      - RUST_LOG=info,corro_agent=debug
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - corrosion-net
+
+  # corrosion-dns - DNS server backed by Corrosion
+  corrosion-dns:
+    build:
+      context: ../..
+      dockerfile: crates/corrosion-dns/Dockerfile
+    ports:
+      - "5353:5353/udp"  # DNS UDP
+      - "5353:5353/tcp"  # DNS TCP
+      - "9090:9090"      # Prometheus metrics
+    volumes:
+      - ./config/corrosion-dns.toml:/etc/corrosion-dns/config.toml:ro
+    environment:
+      - RUST_LOG=info,corrosion_dns=debug
+      # Override config via environment:
+      # - CORROSION_DNS__DNS__LISTEN_ADDR=[::]:5353
+      # - CORROSION_DNS__DNS__CORROSION_ADDR=corrosion:8080
+    depends_on:
+      corrosion:
+        condition: service_healthy
+    networks:
+      - corrosion-net
+
+  # Jaeger - distributed tracing (optional, for OpenTelemetry)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    profiles:
+      - otel
+    networks:
+      - corrosion-net
+
+  # Prometheus - metrics scraping (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    profiles:
+      - monitoring
+    networks:
+      - corrosion-net
+
+  # Grafana - dashboards (optional)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    profiles:
+      - monitoring
+    depends_on:
+      - prometheus
+    networks:
+      - corrosion-net
+
+volumes:
+  corrosion-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  corrosion-net:
+    driver: bridge

@@ -1,0 +1,77 @@
+[package]
+name = "corrosion-dns"
+version = "0.1.0"
+description = "DNS server backed by Corrosion distributed state"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "corrosion-dns"
+path = "src/bin/main.rs"
+
+[dependencies]
+# Workspace dependencies
+async-trait = { workspace = true }
+futures = { workspace = true }
+parking_lot = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Corrosion crates (use git for latest, or crates.io for stability)
+# For standalone use outside the workspace, uncomment the git lines:
+# corro-client = { git = "https://github.com/superfly/corrosion.git", rev = "35fbb309" }
+# corro-api-types = { git = "https://github.com/superfly/corrosion.git", rev = "35fbb309" }
+# tripwire = { git = "https://github.com/superfly/corrosion.git", rev = "35fbb309" }
+# For workspace development, use local paths:
+corro-client = { path = "../corro-client" }
+corro-api-types = { path = "../corro-api-types" }
+tripwire = { path = "../tripwire" }
+
+# DNS dependencies
+hickory-server = "0.25"
+hickory-proto = "0.25"
+
+# HTTP client (for error type from corro-client)
+reqwest = { workspace = true }
+
+# Metrics
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true, optional = true }
+
+# Config
+clap = { workspace = true }
+config = { workspace = true }
+
+# OpenTelemetry (optional)
+opentelemetry = { workspace = true, optional = true }
+opentelemetry-otlp = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true, optional = true }
+tracing-opentelemetry = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = { workspace = true }
+eyre = { workspace = true }
+# These are only needed for integration tests with a real Corrosion agent.
+# For standalone use, integration tests require a running Corrosion instance.
+corro-tests = { path = "../corro-tests" }
+corro-agent = { path = "../corro-agent" }
+corro-types = { path = "../corro-types" }
+
+[features]
+default = ["prometheus"]
+prometheus = ["metrics-exporter-prometheus"]
+otel = [
+    "opentelemetry",
+    "opentelemetry-otlp",
+    "opentelemetry_sdk",
+    "opentelemetry-semantic-conventions",
+    "tracing-opentelemetry",
+]

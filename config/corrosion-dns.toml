@@ -1,0 +1,24 @@
+# corrosion-dns configuration for docker-compose
+
+[dns]
+listen_addr = "[::]:5353"
+base_domain = "apps.internal"
+ttl = 60
+corrosion_addr = "corrosion:8080"
+
+[dns.soa]
+mname = "ns1.apps.internal"
+rname = "admin.apps.internal"
+refresh = 3600
+retry = 600
+expire = 604800
+minimum = 60
+
+[telemetry]
+log_level = "info,corrosion_dns=debug"
+prometheus_addr = "0.0.0.0:9090"
+
+# Uncomment to enable OpenTelemetry (requires 'otel' feature and jaeger service)
+# [telemetry.opentelemetry]
+# endpoint = "http://jaeger:4317"
+# service_name = "corrosion-dns"

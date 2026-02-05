@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant C as DNS Client
+    participant H as Hickory DNS Server
+    participant A as CorrosionAuthority
+    participant S as DnsState
+    participant I as Domain Index
+
+    C->>H: AAAA query<br/>my-api.apps.example.com
+
+    H->>A: lookup(name, AAAA)
+
+    A->>A: Check is_ready()
+
+    alt State not ready
+        A-->>H: SERVFAIL
+        H-->>C: SERVFAIL
+    else State ready
+        A->>S: lookup_aaaa("my-api.apps.example.com")
+        S->>I: HashMap lookup
+
+        alt Domain found
+            I-->>S: [fd00::1, fd00::2]
+            S-->>A: Vec of Ipv6Addr
+            A->>A: build_aaaa_records()
+            A-->>H: AAAA records
+            H-->>C: AAAA fd00::1, fd00::2
+        else Domain not found
+            I-->>S: empty
+            S-->>A: []
+            A-->>H: NXDOMAIN
+            H-->>C: NXDOMAIN
+        end
+    end
+
+    Note over A: Metrics recorded:<br/>query count, duration,<br/>IPs returned

@@ -1,0 +1,40 @@
+# Example configuration for corrosion-dns
+
+[dns]
+# Address to listen on for DNS queries (UDP and TCP)
+listen_addr = "[::]:5353"
+
+# Base domain - apps will be subdomains of this
+base_domain = "apps.example.com"
+
+# TTL for DNS records in seconds
+ttl = 60
+
+# Corrosion API address to connect to
+corrosion_addr = "127.0.0.1:8080"
+
+[dns.soa]
+# Primary nameserver
+mname = "ns1.example.com"
+# Admin email (use . instead of @)
+rname = "admin.example.com"
+# How often secondaries should check for updates
+refresh = 3600
+# Retry interval if refresh fails
+retry = 600
+# When to stop serving if primary unreachable
+expire = 604800
+# Negative caching TTL
+minimum = 60
+
+[telemetry]
+# Log level (supports RUST_LOG format)
+log_level = "info"
+
+# Prometheus metrics endpoint (optional)
+prometheus_addr = "0.0.0.0:9090"
+
+# OpenTelemetry configuration (optional, requires 'otel' feature)
+# [telemetry.opentelemetry]
+# endpoint = "http://localhost:4317"
+# service_name = "corrosion-dns"

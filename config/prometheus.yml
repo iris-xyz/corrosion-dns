@@ -1,0 +1,23 @@
+# Prometheus configuration for corrosion-dns
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # corrosion-dns metrics
+  - job_name: 'corrosion-dns'
+    static_configs:
+      - targets: ['corrosion-dns:9090']
+    metrics_path: /metrics
+
+  # Corrosion agent metrics (if enabled)
+  - job_name: 'corrosion'
+    static_configs:
+      - targets: ['corrosion:9100']
+    metrics_path: /metrics
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
