@@ -118,7 +118,12 @@ async fn query_from(
         .await
         .unwrap_or_else(|e| panic!("failed to bind to {}: {}", src, e));
 
-    let dest: SocketAddr = format!("[::1]:{}", server_port).parse().unwrap();
+    // Match destination address family to source: IPv4 → 127.0.0.1, IPv6 → [::1]
+    let dest: SocketAddr = if src.is_ipv4() {
+        format!("127.0.0.1:{}", server_port).parse().unwrap()
+    } else {
+        format!("[::1]:{}", server_port).parse().unwrap()
+    };
     let query_bytes = build_query_bytes(name, record_type, id);
 
     sock.send_to(&query_bytes, dest)
