@@ -6,7 +6,7 @@ use hickory_server::ServerFuture;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::{TcpListener, UdpSocket};
-use tracing::{error, info, debug};
+use tracing::{debug, error, info};
 use tripwire::Tripwire;
 
 use crate::authority::CorrosionAuthority;

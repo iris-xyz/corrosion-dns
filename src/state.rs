@@ -276,7 +276,11 @@ impl DnsState {
             .count();
         let other = inner.machines.len() - running;
 
-        metrics::record_state_counts(inner.apps.len(), inner.machines.len(), inner.domain_to_ips.len());
+        metrics::record_state_counts(
+            inner.apps.len(),
+            inner.machines.len(),
+            inner.domain_to_ips.len(),
+        );
         metrics::record_machines_by_status(running, other);
         metrics::record_ready_state(inner.apps_ready, inner.machines_ready);
         metrics::record_serial(inner.serial);
@@ -324,10 +328,7 @@ impl DnsState {
             }
         }
 
-        debug!(
-            domains = inner.domain_to_ips.len(),
-            "rebuilt domain index"
-        );
+        debug!(domains = inner.domain_to_ips.len(), "rebuilt domain index");
     }
 }
 
@@ -342,7 +343,13 @@ mod tests {
         }
     }
 
-    fn make_machine(machine_id: &str, app_id: &str, ip: &str, status: &str, region: &str) -> MachineDnsEntry {
+    fn make_machine(
+        machine_id: &str,
+        app_id: &str,
+        ip: &str,
+        status: &str,
+        region: &str,
+    ) -> MachineDnsEntry {
         MachineDnsEntry {
             machine_id: machine_id.to_string(),
             app_id: app_id.to_string(),

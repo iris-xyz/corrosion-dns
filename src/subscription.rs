@@ -146,7 +146,10 @@ impl SubscriptionHandler {
                 Ok(s) => {
                     backoff_secs = 1; // Reset backoff on success
                     if first_connect {
-                        metrics::record_subscription_reconnect("apps", ReconnectReason::InitialConnect);
+                        metrics::record_subscription_reconnect(
+                            "apps",
+                            ReconnectReason::InitialConnect,
+                        );
                         first_connect = false;
                     }
                     s
@@ -283,7 +286,10 @@ impl SubscriptionHandler {
                 Ok(s) => {
                     backoff_secs = 1;
                     if first_connect {
-                        metrics::record_subscription_reconnect("machines", ReconnectReason::InitialConnect);
+                        metrics::record_subscription_reconnect(
+                            "machines",
+                            ReconnectReason::InitialConnect,
+                        );
                         first_connect = false;
                     }
                     s
@@ -350,7 +356,10 @@ impl SubscriptionHandler {
             TypedQueryEvent::Row(_, ref values) => {
                 if let Some(machine) = parse_machine_row(values) {
                     state.upsert_machine(machine);
-                    metrics::record_subscription_event("machines", SubscriptionEventType::InitialRow);
+                    metrics::record_subscription_event(
+                        "machines",
+                        SubscriptionEventType::InitialRow,
+                    );
                 } else {
                     warn!("Failed to parse machine row: {:?}", values);
                 }

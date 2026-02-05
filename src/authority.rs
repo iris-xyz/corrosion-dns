@@ -27,10 +27,7 @@ pub struct CorrosionAuthority {
 
 impl CorrosionAuthority {
     /// Create a new authority for the given configuration and state.
-    pub fn new(
-        config: DnsConfig,
-        state: DnsState,
-    ) -> Result<Self, hickory_proto::ProtoError> {
+    pub fn new(config: DnsConfig, state: DnsState) -> Result<Self, hickory_proto::ProtoError> {
         let origin = Name::from_ascii(&config.base_domain)?.into();
 
         Ok(Self {
@@ -329,7 +326,9 @@ mod tests {
         let authority = CorrosionAuthority::new(test_config(), state).unwrap();
 
         // Regional lookup: iad.my-api.apps.example.com
-        let name: LowerName = Name::from_ascii("iad.my-api.apps.example.com").unwrap().into();
+        let name: LowerName = Name::from_ascii("iad.my-api.apps.example.com")
+            .unwrap()
+            .into();
         let result = authority
             .lookup(&name, RecordType::AAAA, LookupOptions::default())
             .await;
