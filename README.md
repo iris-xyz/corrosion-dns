@@ -1,5 +1,10 @@
 # corrosion-dns
 
+[![CI](https://github.com/iris-xyz/corrosion-dns/actions/workflows/ci.yml/badge.svg)](https://github.com/iris-xyz/corrosion-dns/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](Dockerfile)
+
 An authoritative DNS server backed by [Corrosion](https://github.com/superfly/corrosion) distributed state. It subscribes to the `apps` and `machines` tables in a Corrosion cluster and serves real-time AAAA records based on running machine IPv6 addresses.
 
 ## Architecture
