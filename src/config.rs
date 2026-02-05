@@ -34,6 +34,11 @@ pub struct DnsConfig {
     /// SOA record configuration.
     #[serde(default)]
     pub soa: SoaConfig,
+
+    /// Optional group filtering configuration.
+    /// When present, enables source-IP-based group filtering on AAAA responses.
+    #[serde(default)]
+    pub group_filter: Option<GroupFilterConfig>,
 }
 
 /// Telemetry configuration.
@@ -125,6 +130,47 @@ fn default_expire() -> u32 {
 
 fn default_minimum() -> u32 {
     60
+}
+
+/// Configuration for source-IP-based group filtering.
+///
+/// When enabled, AAAA query results are filtered so that only IPs whose
+/// group hash (extracted from a configurable bit range within the IPv6
+/// address) matches the querying client's group hash are returned.
+///
+/// IPv6 address layout:
+/// ```text
+/// fd00:a1b2:3456:NNNN:GGGG:GGGG:MMMM:MMMM
+/// |___ 48 bits __|16b |_ 32 bits _|_ 32 bits _|
+///    base prefix  node    group      machine
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupFilterConfig {
+    /// Starting bit position (0-indexed from MSB) of the group hash
+    /// within the 128-bit IPv6 address.
+    #[serde(default = "default_group_start_bit")]
+    pub group_start_bit: u8,
+
+    /// Length of the group hash field in bits (max 32).
+    #[serde(default = "default_group_bit_length")]
+    pub group_bit_length: u8,
+}
+
+fn default_group_start_bit() -> u8 {
+    64
+}
+
+fn default_group_bit_length() -> u8 {
+    32
+}
+
+impl Default for GroupFilterConfig {
+    fn default() -> Self {
+        Self {
+            group_start_bit: default_group_start_bit(),
+            group_bit_length: default_group_bit_length(),
+        }
+    }
 }
 
 impl Default for SoaConfig {

@@ -54,6 +54,7 @@
 //!         ttl: 60,
 //!         corrosion_addr: "127.0.0.1:8080".parse().unwrap(),
 //!         soa: SoaConfig::default(),
+//!         group_filter: None,
 //!     };
 //!
 //!     let (tripwire, worker) = Tripwire::new_signals();
@@ -76,7 +77,7 @@ pub mod subscription;
 pub mod telemetry;
 
 // Re-export main types
-pub use config::{Config, DnsConfig, SoaConfig, TelemetryConfig};
+pub use config::{Config, DnsConfig, GroupFilterConfig, SoaConfig, TelemetryConfig};
 pub use error::DnsError;
 pub use server::DnsServer;
 pub use state::DnsState;

@@ -27,6 +27,17 @@ expire = 604800
 # Negative caching TTL
 minimum = 60
 
+# Group filtering (optional)
+# When enabled, AAAA query results are filtered by comparing the group hash
+# embedded in the source IP with the group hash in each result IP.
+# Only IPs matching the querier's group are returned.
+# IPv4 sources bypass the filter entirely.
+# [dns.group_filter]
+# Starting bit position (0-indexed from MSB) of the group hash in the IPv6 address
+# group_start_bit = 64
+# Length of the group hash field in bits (max 32)
+# group_bit_length = 32
+
 [telemetry]
 # Log level (supports RUST_LOG format)
 log_level = "info"
