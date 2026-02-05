@@ -9,7 +9,6 @@ use hickory_server::authority::{
     UpdateResult, ZoneType,
 };
 use hickory_server::server::RequestInfo;
-use std::io;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use tracing::{debug, trace};
@@ -60,7 +59,13 @@ pub struct CorrosionAuthority {
 impl CorrosionAuthority {
     /// Create a new authority for the given configuration and state.
     pub fn new(config: DnsConfig, state: DnsState) -> Result<Self, hickory_proto::ProtoError> {
-        let origin = Name::from_ascii(&config.base_domain)?.into();
+        // Ensure FQDN (trailing dot) so the Catalog can match wire-format query names.
+        let fqdn = if config.base_domain.ends_with('.') {
+            config.base_domain.clone()
+        } else {
+            format!("{}.", config.base_domain)
+        };
+        let origin = Name::from_ascii(&fqdn)?.into();
 
         Ok(Self {
             origin,
@@ -118,10 +123,9 @@ impl CorrosionAuthority {
         if !self.state.is_ready() {
             debug!("DNS state not ready, returning SERVFAIL");
             metrics::record_query(rtype_str, QueryResult::NotReady, timer.elapsed());
-            return LookupControlFlow::Break(Err(LookupError::from(io::Error::new(
-                io::ErrorKind::NotConnected,
-                "DNS state not ready - initial sync incomplete",
-            ))));
+            return LookupControlFlow::Break(Err(LookupError::ResponseCode(
+                ResponseCode::ServFail,
+            )));
         }
 
         let name_str = name.to_string();
@@ -217,10 +221,9 @@ impl Authority for CorrosionAuthority {
         if !self.state.is_ready() {
             debug!("DNS state not ready, returning SERVFAIL");
             metrics::record_query(&rtype_str, QueryResult::NotReady, timer.elapsed());
-            return LookupControlFlow::Break(Err(LookupError::from(io::Error::new(
-                io::ErrorKind::NotConnected,
-                "DNS state not ready - initial sync incomplete",
-            ))));
+            return LookupControlFlow::Break(Err(LookupError::ResponseCode(
+                ResponseCode::ServFail,
+            )));
         }
 
         let name_str = name.to_string();

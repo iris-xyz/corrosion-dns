@@ -74,6 +74,7 @@ eyre = "0.6"
 [features]
 default = ["prometheus"]
 prometheus = ["metrics-exporter-prometheus"]
+integration-loopback = []  # gates Tier 2 loopback tests (needs root + Linux)
 otel = [
     "opentelemetry",
     "opentelemetry-otlp",
