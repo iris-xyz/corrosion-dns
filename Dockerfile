@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:bookworm as builder
+FROM rust:bookworm AS builder
 
 RUN apt-get update && apt-get install -y build-essential gcc-x86-64-linux-gnu clang llvm
 
