@@ -15,10 +15,10 @@ use crate::metrics::{self, ReconnectReason, SubscriptionEventType};
 use crate::state::{AppDnsEntry, DnsState, MachineDnsEntry};
 
 /// Column indices for apps table query.
-/// SELECT app_id, app_name FROM apps
+/// SELECT app_id, name FROM apps (uses 'name' column, aliased to app_name in code)
 mod apps_cols {
     pub const APP_ID: usize = 0;
-    pub const APP_NAME: usize = 1;
+    pub const NAME: usize = 1;
 }
 
 /// Column indices for machines table query.
@@ -34,7 +34,7 @@ mod machines_cols {
 /// Parse an app row from subscription values.
 fn parse_app_row(values: &[SqliteValue]) -> Option<AppDnsEntry> {
     let app_id = values.get(apps_cols::APP_ID)?.as_str()?.to_string();
-    let app_name = values.get(apps_cols::APP_NAME)?.as_str()?.to_string();
+    let app_name = values.get(apps_cols::NAME)?.as_str()?.to_string();
 
     Some(AppDnsEntry { app_id, app_name })
 }
@@ -124,7 +124,7 @@ impl SubscriptionHandler {
 
     /// Subscribe to apps table changes.
     async fn subscribe_apps(client: CorrosionApiClient, state: DnsState, tripwire: Tripwire) {
-        let statement = Statement::Simple("SELECT app_id, app_name FROM apps".into());
+        let statement = Statement::Simple("SELECT app_id, name FROM apps".into());
 
         let mut backoff_secs = 1u64;
         const MAX_BACKOFF: u64 = 30;
