@@ -91,6 +91,61 @@ group_bit_length = 32  # how many bits the group hash occupies
 
 When this section is absent, all AAAA records are returned to all queriers (no filtering).
 
+## Deployment with Unbound
+
+corrosion-dns only serves its own zone (`apps.example.com`). If your microVMs point at a single DNS address for all resolution — internal apps and external names like `google.com` — you need a resolver in front that routes queries to the right place.
+
+[Unbound](https://nlnetlabs.nl/projects/unbound/about/) does this. It sits at the WireGuard address your microVMs already use as their nameserver, forwards the internal zone to corrosion-dns, and resolves everything else upstream.
+
+```mermaid
+flowchart LR
+    VM1["microVM<br/>resolv.conf → fdaa::3"] -- "web.apps.example.com?" --> UB
+    VM2["microVM<br/>resolv.conf → fdaa::3"] -- "google.com?" --> UB
+    UB["Unbound<br/>fdaa::3:53"] -- "*.apps.example.com" --> CD["corrosion-dns<br/>127.0.0.1:5353"]
+    UB -- "everything else" --> UP["Upstream<br/>8.8.8.8 / 1.1.1.1"]
+```
+
+### Setup
+
+1. **Install Unbound** on the host that runs corrosion-dns:
+
+    ```bash
+    # Debian/Ubuntu
+    apt install unbound
+
+    # Fedora
+    dnf install unbound
+    ```
+
+2. **Copy the config** from this repo and edit the interface address and zone name:
+
+    ```bash
+    cp config/unbound.conf /etc/unbound/unbound.conf.d/corrosion-dns.conf
+    ```
+
+    Edit the file — change `fdaa::3` to your actual WireGuard address, `apps.example.com` to your base domain, and `127.0.0.1@5353` to wherever corrosion-dns is listening.
+
+3. **Start both services:**
+
+    ```bash
+    # corrosion-dns serves the internal zone on localhost:5353
+    corrosion-dns --config /etc/corrosion-dns/config.toml &
+
+    # Unbound serves on the WireGuard address, forwarding internally
+    systemctl enable --now unbound
+    ```
+
+4. **Point your microVMs** at the Unbound address:
+
+    ```
+    # /etc/resolv.conf inside each microVM
+    nameserver fdaa::3
+    ```
+
+That's it. Internal names go through corrosion-dns with group filtering, external names go to upstream resolvers, and the microVM doesn't know the difference.
+
+See [`config/unbound.conf`](config/unbound.conf) for the full annotated config.
+
 ## Quickstart
 
 ### Prerequisites
