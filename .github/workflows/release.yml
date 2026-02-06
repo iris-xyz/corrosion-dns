@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: corrosion-dns
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: corrosion-dns-x86_64-linux
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: corrosion-dns-aarch64-linux
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: corrosion-dns-x86_64-darwin
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: corrosion-dns-aarch64-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} --features prometheus
+
+      - name: Strip binary
+        run: |
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            aarch64-linux-gnu-strip target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}
+          else
+            strip target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}
+          fi
+
+      - name: Rename artifact
+        run: cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} ${{ matrix.artifact }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    name: Create release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: artifacts
+        run: sha256sum corrosion-dns-* > checksums-sha256.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.tag }}" \
+            artifacts/corrosion-dns-* \
+            artifacts/checksums-sha256.txt \
+            --title "${{ inputs.tag }}" \
+            ${{ inputs.prerelease && '--prerelease' || '' }} \
+            --notes "$(cat <<'EOF'
+          ## Binaries
+
+          | File | Platform |
+          |------|----------|
+          | `corrosion-dns-x86_64-linux` | Linux x86_64 |
+          | `corrosion-dns-aarch64-linux` | Linux ARM64 |
+          | `corrosion-dns-x86_64-darwin` | macOS Intel |
+          | `corrosion-dns-aarch64-darwin` | macOS Apple Silicon |
+
+          ## Verify
+
+          ```bash
+          sha256sum -c checksums-sha256.txt
+          ```
+
+          ## Quick start
+
+          ```bash
+          chmod +x corrosion-dns-*
+          ./corrosion-dns-x86_64-linux --config corrosion-dns.example.toml
+          ```
+
+          See the [README](https://github.com/iris-xyz/corrosion-dns#readme) for full setup.
+          EOF
+          )"
