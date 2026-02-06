@@ -34,10 +34,11 @@ parking_lot = "0.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Corrosion client (git dependency for latest)
-corro-client = { git = "https://github.com/superfly/corrosion.git", rev = "35fbb309" }
-corro-api-types = { git = "https://github.com/superfly/corrosion.git", rev = "35fbb309" }
-tripwire = { git = "https://github.com/superfly/corrosion.git", rev = "35fbb309" }
+# Corrosion client (superfly/corrosion at commit matching psviderski:latest)
+# psviderski/corrosion:latest is based on this commit from upstream
+corro-client = { git = "https://github.com/superfly/corrosion.git", rev = "8fd00b8" }
+corro-api-types = { git = "https://github.com/superfly/corrosion.git", rev = "8fd00b8" }
+tripwire = { git = "https://github.com/superfly/corrosion.git", rev = "8fd00b8" }
 
 # DNS server
 hickory-server = "0.25"
@@ -74,6 +75,7 @@ eyre = "0.6"
 [features]
 default = ["prometheus"]
 prometheus = ["metrics-exporter-prometheus"]
+integration-loopback = []  # gates Tier 2 loopback tests (needs root + Linux)
 otel = [
     "opentelemetry",
     "opentelemetry-otlp",

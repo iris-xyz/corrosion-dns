@@ -177,6 +177,7 @@ mod tests {
             ttl: 60,
             corrosion_addr: "127.0.0.1:8080".parse().unwrap(),
             soa: SoaConfig::default(),
+            group_filter: None,
         };
 
         let server = DnsServer::new(config);

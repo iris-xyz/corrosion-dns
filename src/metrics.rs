@@ -12,6 +12,7 @@ pub fn record_query(record_type: &str, result: QueryResult, duration: std::time:
         QueryResult::NxDomain => "nxdomain",
         QueryResult::NotReady => "not_ready",
         QueryResult::Error => "error",
+        QueryResult::GroupDenied => "group_denied",
     };
 
     counter!("corro_dns.query.count", "type" => record_type.to_string(), "result" => result_str)
@@ -31,6 +32,8 @@ pub enum QueryResult {
     NotReady,
     /// Query failed with an error.
     Error,
+    /// Domain exists but all IPs filtered out by group policy.
+    GroupDenied,
 }
 
 /// Record a subscription event.
@@ -118,6 +121,11 @@ pub fn record_serial(serial: u32) {
 /// Record a full state resync (due to missed changes).
 pub fn record_state_resync() {
     counter!("corro_dns.state.resync.count").increment(1);
+}
+
+/// Record a query denied by group filtering.
+pub fn record_group_denied() {
+    counter!("corro_dns.query.group_denied.count").increment(1);
 }
 
 /// Record IPs returned for a successful AAAA lookup.
